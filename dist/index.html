@@ -58,9 +58,7 @@
     .status-card { padding: 25px; border: 1px solid var(--line); background: var(--surface); border-radius: 20px; box-shadow: var(--shadow); }
     .status-card p { margin: 0 0 16px; color: var(--muted); font-size: .88rem; }
     .status-card strong { display: block; font: 700 2.5rem/1 Georgia, serif; color: var(--deep); }
-    .progress-track { height: 8px; background: #e8e7df; border-radius: 99px; overflow: hidden; margin: 18px 0 10px; }
-    .progress-bar { height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width .25s ease; }
-    .status-row { display: flex; justify-content: space-between; color: var(--muted); font-size: .78rem; }
+    .counter-detail { margin-top: 14px !important; color: var(--muted) !important; font-size: .82rem !important; }
     .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
     .metric { padding: 18px 20px; background: rgba(255,254,250,.76); border: 1px solid var(--line); border-radius: 14px; }
     .metric span { display: block; margin-bottom: 7px; color: var(--muted); font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
@@ -110,6 +108,8 @@
     .report-table th { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; text-align: left; }
     .report-table td { padding: 12px 10px; border-bottom: 1px solid #ecece5; font-size: .88rem; vertical-align: top; }
     .report-table tr:last-child td { border-bottom: 0; }
+    .link-button { padding: 0; border: 0; background: none; color: var(--deep); font-weight: 800; text-decoration: underline; text-decoration-color: rgba(23,63,58,.25); text-underline-offset: 3px; }
+    .link-button:hover, .link-button:focus-visible { text-decoration-color: var(--deep); outline: none; }
     dialog { width: min(720px, calc(100% - 28px)); max-height: 88vh; padding: 0; border: 0; border-radius: 18px; background: var(--surface); color: var(--ink); box-shadow: 0 28px 80px rgba(20,43,40,.28); }
     dialog::backdrop { background: rgba(14,31,29,.58); backdrop-filter: blur(3px); }
     .dialog-head { position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; gap: 16px; padding: 21px 22px 17px; background: var(--surface); border-bottom: 1px solid var(--line); }
@@ -130,9 +130,7 @@
     .mini-session span { color: var(--muted); }
     @media (max-width: 820px) {
       .hero, .workspace { grid-template-columns: 1fr; }
-      .status-card { display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; align-items: center; }
-      .status-card p { grid-column: 1 / -1; }
-      .progress-wrap { align-self: end; }
+      .status-card { display: block; }
     }
     @media (max-width: 560px) {
       .shell { padding: 18px 14px 38px; }
@@ -179,12 +177,9 @@
         <p>Add a session in seconds and review attendance totals for every student in one place.</p>
       </div>
       <aside class="status-card" aria-label="Monthly progress">
-        <p>Monthly tutoring target</p>
-        <strong id="targetHours">0 / 20h</strong>
-        <div class="progress-wrap">
-          <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
-          <div class="status-row"><span id="progressLabel">0% complete</span><span>20 hour goal</span></div>
-        </div>
+        <p>Hours logged this month</p>
+        <strong id="monthlyCounter">0.0h</strong>
+        <p class="counter-detail" id="counterDetail">0 sessions recorded</p>
       </aside>
     </section>
 
@@ -242,6 +237,13 @@
       <button class="close" id="closeDialog" aria-label="Close student details">&times;</button>
     </div>
     <div class="dialog-body" id="studentDialogBody"></div>
+  </dialog>
+  <dialog id="tutorDialog" aria-labelledby="tutorDialogTitle">
+    <div class="dialog-head">
+      <div><h3 id="tutorDialogTitle"></h3><p id="tutorDialogSubtitle"></p></div>
+      <button class="close" id="closeTutorDialog" aria-label="Close tutor details">&times;</button>
+    </div>
+    <div class="dialog-body" id="tutorDialogBody"></div>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite">Session saved</div>
 
@@ -321,10 +323,8 @@
       document.querySelector('#totalHours').textContent = total.toFixed(2).replace(/\.00$/, '.0');
       document.querySelector('#sessionCount').textContent = chosen.length;
       document.querySelector('#studentCount').textContent = Object.keys(byStudent).length;
-      document.querySelector('#targetHours').textContent = `${total.toFixed(1)} / 20h`;
-      const percentage = Math.min(100, Math.round(total / 20 * 100));
-      document.querySelector('#progressBar').style.width = `${percentage}%`;
-      document.querySelector('#progressLabel').textContent = `${percentage}% complete`;
+      document.querySelector('#monthlyCounter').textContent = formatHours(total);
+      document.querySelector('#counterDetail').textContent = `${chosen.length} ${chosen.length === 1 ? 'session' : 'sessions'} recorded`;
       document.querySelector('#summaryLabel').textContent = monthName(monthFilter.value);
       document.querySelector('#staffReportLabel').textContent = monthName(monthFilter.value);
       document.querySelector('#historyCount').textContent = `${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'}`;
@@ -335,7 +335,7 @@
       `).join('') : emptyState('No student totals for this month.');
 
       const tutorRows = Object.entries(byTutor).sort((a,b) => b[1].hours - a[1].hours);
-      document.querySelector('#staffReport').innerHTML = tutorRows.length ? `<table class="report-table"><thead><tr><th>Tutor / staff</th><th>Students tutored</th><th>Sessions</th><th>Total hours</th></tr></thead><tbody>${tutorRows.map(([name,data]) => `<tr><td><strong>${escapeHTML(name)}</strong></td><td>${escapeHTML([...data.students].sort().join(', '))}</td><td>${data.sessions}</td><td><strong>${formatHours(data.hours)}</strong></td></tr>`).join('')}</tbody></table>` : emptyState('No staff activity for this month.');
+      document.querySelector('#staffReport').innerHTML = tutorRows.length ? `<table class="report-table"><thead><tr><th>Tutor / staff</th><th>Students tutored</th><th>Sessions</th><th>Total hours</th></tr></thead><tbody>${tutorRows.map(([name,data]) => `<tr><td><button class="link-button" data-tutor="${escapeHTML(name)}">${escapeHTML(name)}</button></td><td>${escapeHTML([...data.students].sort().join(', '))}</td><td>${data.sessions}</td><td><strong>${formatHours(data.hours)}</strong></td></tr>`).join('')}</tbody></table>` : emptyState('No staff activity for this month.');
 
       document.querySelector('#sessionList').innerHTML = chosen.length ? chosen.map(session => {
         const parsed = new Date(`${session.date}T12:00:00`);
@@ -367,6 +367,17 @@
       document.querySelector('#studentDialog').showModal();
     }
 
+    function openTutor(name) {
+      const records = selectedSessions().filter(s => (s.tutor || 'Unassigned') === name).sort((a,b) => b.date.localeCompare(a.date));
+      const total = records.reduce((sum,s) => sum + Number(s.hours), 0);
+      const byStudent = records.reduce((map,s) => { map[s.student] ??= {hours:0,sessions:0}; map[s.student].hours += Number(s.hours); map[s.student].sessions += 1; return map; },{});
+      document.querySelector('#tutorDialogTitle').textContent = name;
+      document.querySelector('#tutorDialogSubtitle').textContent = monthName(monthFilter.value);
+      const students = Object.entries(byStudent).sort((a,b)=>b[1].hours-a[1].hours).map(([student,data]) => `<button class="student-row" data-tutor-student="${escapeHTML(student)}"><strong>${escapeHTML(student)}</strong><span>${data.sessions} ${data.sessions===1?'session':'sessions'}</span><b>${formatHours(data.hours)}</b><i>View →</i></button>`).join('');
+      document.querySelector('#tutorDialogBody').innerHTML = `<div class="detail-stats"><div class="detail-stat"><span>Students</span><strong>${Object.keys(byStudent).length}</strong></div><div class="detail-stat"><span>Sessions submitted</span><strong>${records.length}</strong></div><div class="detail-stat"><span>Total hours</span><strong>${formatHours(total)}</strong></div></div><div class="detail-section"><h4>Students tutored this month</h4><div class="student-list" style="padding:0">${students}</div></div>`;
+      document.querySelector('#tutorDialog').showModal();
+    }
+
     form.addEventListener('submit', event => {
       event.preventDefault(); errorEl.textContent = '';
       const tutor = tutorInput.value.trim().replace(/\s+/g, ' ');
@@ -387,7 +398,10 @@
       sessions = sessions.filter(session => session.id !== button.dataset.id); persist(); render(); showToast('Session deleted');
     });
     document.querySelector('#studentList').addEventListener('click', event => { const row=event.target.closest('[data-student]'); if(row) openStudent(row.dataset.student); });
+    document.querySelector('#staffReport').addEventListener('click', event => { const row=event.target.closest('[data-tutor]'); if(row) openTutor(row.dataset.tutor); });
     document.querySelector('#closeDialog').addEventListener('click', () => document.querySelector('#studentDialog').close());
+    document.querySelector('#closeTutorDialog').addEventListener('click', () => document.querySelector('#tutorDialog').close());
+    document.querySelector('#tutorDialogBody').addEventListener('click', event => { const row=event.target.closest('[data-tutor-student]'); if(!row) return; document.querySelector('#tutorDialog').close(); openStudent(row.dataset.tutorStudent); });
     document.querySelector('#studentDialogBody').addEventListener('change', event => { if(!event.target.matches('[data-achievement]')) return; const name=document.querySelector('#studentDialogTitle').textContent; achievements[achievementId(name,monthFilter.value,event.target.dataset.achievement)] = event.target.checked; persistAchievements(); showToast('Achievement updated'); });
     monthFilter.addEventListener('change', render);
 
