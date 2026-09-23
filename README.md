@@ -15,6 +15,7 @@ A lightweight replacement for LVAEP's paper-based Student Monthly Attendance & A
 - Open any student to review monthly sessions, hours, tutors, and achievement attainment
 - Check off achievements from the original form's Economic, Educational, Family, and Societal/Community categories
 - Review a staff monthly report showing students tutored, session count, and total hours
+- Open any tutor to review their monthly student count, submitted sessions, total hours, and student-level breakdown
 - Delete incorrect entries with confirmation
 - Persist records in the browser with `localStorage`
 - Responsive, keyboard-friendly interface
