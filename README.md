@@ -8,10 +8,13 @@ A lightweight replacement for LVAEP's paper-based Student Monthly Attendance & A
 
 ## Features
 
-- Record a tutoring session with student, date, duration, and an optional note
+- Record a tutoring session with tutor, student, date, duration, and an optional note
 - Filter records by reporting month
 - See monthly totals for hours, sessions, and active students
 - Review totals by student
+- Open any student to review monthly sessions, hours, tutors, and achievement attainment
+- Check off achievements from the original form's Economic, Educational, Family, and Societal/Community categories
+- Review a staff monthly report showing students tutored, session count, and total hours
 - Delete incorrect entries with confirmation
 - Persist records in the browser with `localStorage`
 - Responsive, keyboard-friendly interface
